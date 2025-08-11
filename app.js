@@ -139,68 +139,63 @@ window.onload = function () {
     }
 
     function InfiniteSeriesSim() {
-        // State for the person's position (0 = start, 100 = at the wall)
-        const [position, setPosition] = React.useState(0);
-        const [steps, setSteps] = React.useState(0);
-        const totalDistance = 100;
-        
-        // This is the core logic: it calculates the next step based on the *previous* position.
-        // This is a safer way to update state in React and avoids potential bugs.
-        const handleStep = () => {
-            setPosition(prevPosition => {
-                const remaining = totalDistance - prevPosition;
-                return prevPosition + remaining / 2;
+        // Step-based model toward a wall at 2 feet
+        const wallPosition = 2; // feet
+        const [steps, setSteps] = React.useState([{ distance: 0, total: 0 }]);
+        const [isComplete, setIsComplete] = React.useState(false);
+
+        const takeStep = () => {
+            setSteps((prev) => {
+                const last = prev[prev.length - 1];
+                const remaining = wallPosition - last.total;
+                if (remaining < 0.001) { setIsComplete(true); return prev; }
+                const newDistance = remaining / 2;
+                return [...prev, { distance: newDistance, total: last.total + newDistance }];
             });
-            setSteps(prevSteps => prevSteps + 1);
         };
+        const reset = () => { setSteps([{ distance: 0, total: 0 }]); setIsComplete(false); };
 
-        const handleReset = () => {
-            setPosition(0);
-            setSteps(0);
-        };
-
-        const remainingDistance = totalDistance - position;
+        const currentTotal = steps[steps.length - 1].total;
+        const lastStep = steps[steps.length - 1].distance || 0;
+        const percentToWall = Math.min(95, Math.max(0, (currentTotal / wallPosition) * 95)); // keep within box
 
         return (
             React.createElement(Box, null,
                 React.createElement(Typography, { variant: "body1", paragraph: true },
-                    "[cite_start]\"Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]\""
+                    "[cite_start]\"Visualize Wheelan's halving-to-a-wall infinite series. The wall is at 2 feet. Each step halves the remaining distance, so the total converges toward 2 but never reaches it. [cite: 117-126]\""
                 ),
-                
+
                 // --- VISUAL SIMULATION AREA ---
-                React.createElement(Box, { sx: { position: "relative", height: "80px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden" } },
-                    
-                    // --- The "Person" Icon ---
-                    // We animate the 'x' property (translateX) which is often more performant for movement.
-                    // The position is a percentage of the container's width.
-                    React.createElement(motion.div, { 
-                        initial: { left: "0%" }, 
-                        animate: { left: `${position}%` }, 
-                        transition: { type: "spring", stiffness: 100, damping: 15 }, 
-                        style: { position: "absolute", bottom: "10px", left: `${position}%`, width: "5%", display: 'flex', justifyContent: 'center' } 
-                    }, React.createElement("i", { className: "material-icons", style: { fontSize: '40px' } }, "directions_walk")),
-                    
-                    // --- The "Wall" ---
-                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "5%", backgroundColor: "grey.400", display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                        React.createElement(Typography, { variant: "caption", sx: { writingMode: 'vertical-rl', textOrientation: 'mixed', color: 'black' } }, "WALL")
-                    )
+                React.createElement(Box, { sx: { position: "relative", height: "96px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden", display: 'flex', alignItems: 'center' } },
+                    // Wall at right
+                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, bottom: 0, width: "4%", backgroundColor: "grey.800", borderTopRightRadius: '4px', borderBottomRightRadius: '4px' } }),
+                    React.createElement(Typography, { variant: "caption", sx: { position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontWeight: 700 } }, "Wall"),
+
+                    // Moving block labeled "You"; animate left percentage of container width
+                    React.createElement(motion.div, {
+                        initial: { left: "0%" },
+                        animate: { left: `${percentToWall}%` },
+                        transition: { type: 'spring', stiffness: 110, damping: 18 },
+                        style: { position: 'absolute', bottom: '12px', left: `${percentToWall}%`, width: '40px', height: '56px', background: '#1976d2', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }
+                    }, "You")
                 ),
 
                 // --- STATS DISPLAY ---
-                React.createElement(Grid, { container: true, spacing: 2, textAlign: "center" },
-                    React.createElement(Grid, { item: true, xs: 6 },
-                        React.createElement(Typography, { variant: "body2" }, "Steps Taken: ", React.createElement("strong", null, steps))
-                    ),
-                    React.createElement(Grid, { item: true, xs: 6 },
-                        React.createElement(Typography, { variant: "body2" }, "Remaining Distance: ", React.createElement("strong", null, remainingDistance.toFixed(4)), "%")
-                    )
+                React.createElement(Grid, { container: true, spacing: 2, textAlign: 'center' },
+                    React.createElement(Grid, { item: true, xs: 12, sm: 4 }, React.createElement(Typography, { variant: 'body2' }, "Steps: ", React.createElement('b', null, steps.length - 1))),
+                    React.createElement(Grid, { item: true, xs: 12, sm: 4 }, React.createElement(Typography, { variant: 'body2' }, "Last Step: ", React.createElement('b', null, lastStep.toFixed(4)), " ft")),
+                    React.createElement(Grid, { item: true, xs: 12, sm: 4 }, React.createElement(Typography, { variant: 'body2' }, "Total Distance: ", React.createElement('b', { style: { color: '#1976d2' } }, currentTotal.toFixed(4)), " ft"))
                 ),
-                
+
                 // --- CONTROLS ---
-                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 3 } },
-                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Move Halfway"),
-                    React.createElement(Button, { variant: "outlined", onClick: handleReset }, "Reset")
-                )
+                React.createElement(Box, { sx: { display: 'flex', justifyContent: 'center', gap: 2, mt: 3 } },
+                    React.createElement(Button, { variant: 'contained', onClick: takeStep, disabled: isComplete }, "Take a Step"),
+                    React.createElement(Button, { variant: 'outlined', onClick: reset }, "Reset")
+                ),
+
+                // Convergence note
+                isComplete && React.createElement(motion.div, { initial: { opacity: 0 }, animate: { opacity: 1 } },
+                    React.createElement(Typography, { sx: { mt: 2, color: 'success.main', fontWeight: 600 } }, "This is convergence: steps shrink infinitely, the total approaches 2."))
             )
         );
     }
