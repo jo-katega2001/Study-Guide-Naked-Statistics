@@ -321,6 +321,101 @@ window.onload = function () {
         );
     }
 
+    // --- NEW: Monty Hall Simulator ---
+    function MontyHallSimulator() {
+        const [prizeDoor, setPrizeDoor] = React.useState(() => Math.floor(Math.random() * 3));
+        const [pickedDoor, setPickedDoor] = React.useState(null);
+        const [revealedDoor, setRevealedDoor] = React.useState(null);
+        const [stage, setStage] = React.useState("pick"); // pick -> reveal -> decide -> result
+        const [stats, setStats] = React.useState({ switchWins: 0, stayWins: 0, games: 0 });
+
+        const resetRound = () => {
+            setPrizeDoor(Math.floor(Math.random() * 3));
+            setPickedDoor(null);
+            setRevealedDoor(null);
+            setStage("pick");
+        };
+
+        const handlePick = (doorIdx) => {
+            if (stage !== "pick") return;
+            const goats = [0,1,2].filter(d => d !== doorIdx && d !== prizeDoor);
+            const hostReveal = goats[Math.floor(Math.random() * goats.length)];
+            setPickedDoor(doorIdx);
+            setRevealedDoor(hostReveal);
+            setStage("decide");
+        };
+
+        const finish = (didSwitch) => {
+            const finalDoor = didSwitch ? [0,1,2].find(d => d !== pickedDoor && d !== revealedDoor) : pickedDoor;
+            const win = finalDoor === prizeDoor;
+            setStats(prev => ({
+                switchWins: prev.switchWins + (didSwitch && win ? 1 : 0),
+                stayWins: prev.stayWins + (!didSwitch && win ? 1 : 0),
+                games: prev.games + 1,
+            }));
+            setStage("result");
+        };
+
+        const Door = ({ index }) => {
+            const disabled = stage !== "pick" || index === revealedDoor;
+            const isPicked = pickedDoor === index;
+            const isRevealed = revealedDoor === index;
+            const showPrize = stage === "result" && index === prizeDoor;
+            return (
+                React.createElement(Button,
+                    { variant: isPicked ? "contained" : "outlined",
+                      color: isRevealed ? "error" : "primary",
+                      onClick: () => handlePick(index),
+                      disabled: disabled,
+                      sx: { minWidth: 90, height: 100, position: "relative" } },
+                    React.createElement(Typography, { variant: "button" }, `Door ${index + 1}`),
+                    isRevealed && React.createElement(Typography, { variant: "caption", sx: { position: "absolute", bottom: 6, left: 0, right: 0 } }, "Goat 🐐"),
+                    showPrize && React.createElement(Typography, { variant: "caption", sx: { position: "absolute", bottom: 6, left: 0, right: 0 } }, "Prize 🎁")
+                )
+            );
+        };
+
+        return (
+            React.createElement(Box, null,
+                React.createElement(Typography, { variant: "body1", paragraph: true },
+                    "Play the Monty Hall game. Pick a door; the host reveals a goat behind another door. Decide whether to switch. Over many trials, switching wins about 2/3 of the time."
+                ),
+                React.createElement(Box, { sx: { display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap", my: 1 } },
+                    [0,1,2].map(i => React.createElement(Door, { key: i, index: i }))
+                ),
+                stage === "decide" && React.createElement(Box, { sx: { display: "flex", gap: 2, justifyContent: "center", mt: 2 } },
+                    React.createElement(Button, { variant: "contained", color: "secondary", onClick: () => finish(true) }, "Switch"),
+                    React.createElement(Button, { variant: "outlined", onClick: () => finish(false) }, "Stay")
+                ),
+                stage === "result" && React.createElement(Box, { sx: { textAlign: "center", mt: 2 } },
+                    React.createElement(Typography, { variant: "subtitle1", sx: { mb: 1 } }, "Round Complete"),
+                    React.createElement(Button, { variant: "contained", onClick: resetRound }, "Play Again")
+                ),
+                React.createElement(Grid, { container: true, spacing: 2, sx: { mt: 2 }, justifyContent: "center" },
+                    React.createElement(Grid, { item: true }, React.createElement(Chip, { label: `Switch Wins: ${stats.switchWins}`, color: "primary" })),
+                    React.createElement(Grid, { item: true }, React.createElement(Chip, { label: `Stay Wins: ${stats.stayWins}`, color: "secondary" })),
+                    React.createElement(Grid, { item: true }, React.createElement(Chip, { label: `Games: ${stats.games}`, variant: "outlined" }))
+                )
+            )
+        );
+    }
+
+    // --- NEW: Misleading Correlation Case Study ---
+    function MisleadingCorrelationExample() {
+        return (
+            React.createElement(Box, null,
+                React.createElement(Typography, { variant: "body1", paragraph: true },
+                    "Case study: Researchers found a correlation between taking short breaks at work and higher cancer rates. The hidden variable was smoking—people stepped outside to smoke during breaks. The breaks didn’t cause cancer; smoking did. This illustrates confounding and the principle: Garbage In, Garbage Out."
+                ),
+                React.createElement(List, null,
+                    React.createElement(ListItem, null, React.createElement(ListItemText, { primary: "Observation", secondary: "Workers who take short breaks have higher cancer rates." })),
+                    React.createElement(ListItem, null, React.createElement(ListItemText, { primary: "Confounder", secondary: "Smokers take more short breaks to smoke; smoking raises cancer risk." })),
+                    React.createElement(ListItem, null, React.createElement(ListItemText, { primary: "Takeaway", secondary: "Correlation alone can mislead; always look for lurking variables and data quality issues." }))
+                )
+            )
+        );
+    }
+
     // --- CHAPTER 1 MODULES ---
     function MeanMedianSim() {
         const initialData = [35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000];
@@ -916,8 +1011,10 @@ window.onload = function () {
                             tab === 0 && React.createElement(Box, null,
                                 React.createElement(ModuleCard, { title: "Infinite Series Simulation" }, React.createElement(InfiniteSeriesSim, null)),
                                 React.createElement(ModuleCard, { title: "Narrative Nuggets" }, React.createElement(NarrativeNuggets, null)),
+                                React.createElement(ModuleCard, { title: "Monty Hall Simulator" }, React.createElement(MontyHallSimulator, null)),
                                 React.createElement(ModuleCard, { title: "Key Ideas" }, React.createElement(KeyIdeas, null)),
-                                React.createElement(ModuleCard, { title: "Flashcards" }, React.createElement(FlashcardModule, { cards: introductionFlashcards }))
+                                React.createElement(ModuleCard, { title: "Flashcards" }, React.createElement(FlashcardModule, { cards: introductionFlashcards })),
+                                React.createElement(ModuleCard, { title: "Misleading Correlation Case Study" }, React.createElement(MisleadingCorrelationExample, null))
                             ),
                             tab === 1 && React.createElement(Box, null,
                                 React.createElement(ModuleCard, { title: "Mean vs. Median Simulation" }, React.createElement(MeanMedianSim, null)),
