@@ -139,21 +139,57 @@ window.onload = function () {
     }
 
     function InfiniteSeriesSim() {
-        const [position, setPosition] = React.useState(0);
+        const [position, setPosition] = React.useState(0); // Position from 0 (start) to 100 (wall)
+        const [steps, setSteps] = React.useState(0);
         const totalDistance = 100;
+        const wallPosition = 95; // Where the wall is visually, leaving space for the icon
+
+        const handleStep = () => {
+            setPosition(prev => prev + (totalDistance - prev) / 2);
+            setSteps(s => s + 1);
+        };
+
+        const handleReset = () => {
+            setPosition(0);
+            setSteps(0);
+        };
+
+        // Calculate visual position to stop right before the wall
+        const visualPosition = Math.min(position, wallPosition);
         const remainingDistance = totalDistance - position;
-        const handleStep = () => { setPosition((prev) => prev + remainingDistance / 2); };
-        const handleReset = () => setPosition(0);
+
         return (
             React.createElement(Box, null,
                 React.createElement(Typography, { variant: "body1", paragraph: true }, "[cite_start]Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]"),
-                React.createElement(Box, { sx: { position: "relative", height: "50px", border: "1px solid grey", borderRadius: "4px", my: 2 } },
-                    React.createElement(motion.div, { animate: { left: `${position}%` }, transition: { type: "spring", stiffness: 100 }, style: { position: "absolute", top: "10px", width: "30px", height: "30px", backgroundColor: "primary.main", borderRadius: "50%" } }),
-                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "5px", backgroundColor: "secondary.main" } })
+                
+                // Visual Simulation Area
+                React.createElement(Box, { sx: { position: "relative", height: "80px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden" } },
+                    // The "Person" Icon
+                    React.createElement(motion.div, { 
+                        animate: { left: `${visualPosition}%` }, 
+                        transition: { type: "spring", stiffness: 100 }, 
+                        style: { position: "absolute", bottom: "10px", width: "5%", display: 'flex', justifyContent: 'center' } 
+                    }, React.createElement("i", { className: "material-icons", style: { fontSize: '40px' } }, "directions_walk")),
+                    
+                    // The "Wall"
+                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "5%", backgroundColor: "grey.400", display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        React.createElement(Typography, { variant: "caption", sx: { writingMode: 'vertical-rl', textOrientation: 'mixed', color: 'black' } }, "WALL")
+                    )
                 ),
-                React.createElement(Typography, { variant: "body2", align: "center" }, "Distance to Wall: ", React.createElement("strong", null, (totalDistance - position).toFixed(4)), "%"),
-                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 2 } },
-                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Take a Step"),
+
+                // Stats Display
+                React.createElement(Grid, { container: true, spacing: 2, textAlign: "center" },
+                    React.createElement(Grid, { item: true, xs: 6 },
+                        React.createElement(Typography, { variant: "body2" }, "Steps Taken: ", React.createElement("strong", null, steps))
+                    ),
+                    React.createElement(Grid, { item: true, xs: 6 },
+                        React.createElement(Typography, { variant: "body2" }, "Remaining Distance: ", React.createElement("strong", null, remainingDistance.toFixed(4)), "%")
+                    )
+                ),
+                
+                // Controls
+                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 3 } },
+                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Move Halfway"),
                     React.createElement(Button, { variant: "outlined", onClick: handleReset }, "Reset")
                 )
             )
