@@ -157,7 +157,12 @@ window.onload = function () {
 
         const currentTotal = steps[steps.length - 1].total;
         const lastStep = steps[steps.length - 1].distance || 0;
-        const percentToWall = Math.min(95, Math.max(0, (currentTotal / wallPosition) * 95)); // keep within box
+        // Keep a visible gap so the block never reaches the wall visually
+        const wallPct = 4;   // matches the wall Box width: "4%"
+        const iconPct = 5;   // matches moving block width: "5%"
+        const gapPct  = 1;   // small safety margin so it never touches
+        const maxPctTravel = 100 - wallPct - iconPct - gapPct; // available horizontal travel
+        const percentToWall = Math.min(maxPctTravel - 0.001, Math.max(0, (currentTotal / wallPosition) * maxPctTravel));
 
         return (
             React.createElement(Box, null,
@@ -176,7 +181,7 @@ window.onload = function () {
                         initial: { left: "0%" },
                         animate: { left: `${percentToWall}%` },
                         transition: { type: 'spring', stiffness: 110, damping: 18 },
-                        style: { position: 'absolute', bottom: '12px', left: `${percentToWall}%`, width: '40px', height: '56px', background: '#1976d2', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }
+                        style: { position: 'absolute', bottom: '12px', left: `${percentToWall}%`, width: '5%', height: '56px', background: '#1976d2', color: 'white', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }
                     }, "You")
                 ),
 
