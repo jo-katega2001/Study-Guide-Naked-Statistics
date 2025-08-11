@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naked Statistics: An Interactive Guide</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%93%98%3C/text%3E%3C/svg%3E" />
+    <style>
+        body { margin: 0; font-family: 'Roboto', sans-serif; }
+        .flashcard-container { perspective: 1000px; }
+        .flashcard {
+            position: relative;
+            width: 100%;
+            height: 150px;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        .flashcard.flipped { transform: rotateY(180deg); }
+        .flashcard-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .flashcard-front { z-index: 2; transform: rotateY(0deg); }
+        .flashcard-back { transform: rotateY(180deg); }
+        .draggable-item { cursor: grab; user-select: none; }
+        .drop-target { min-height: 100px; transition: background-color 0.2s; }
+        .drop-target-hover { background-color: rgba(0, 0, 0, 0.1); }
+        [data-theme='dark'] .drop-target-hover { background-color: rgba(255, 255, 255, 0.1); }
+    </style>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.umd.min.js"></script>
+    <script src="https://unpkg.com/react-dnd@16/dist/umd/ReactDnD.min.js"></script>
+    <script src="https://unpkg.com/react-dnd-html5-backend@16/dist/umd/ReactDnDHTML5Backend.min.js"></script>
+    <script src="https://unpkg.com/react-dnd-touch-backend@16/dist/umd/ReactDnDTouchBackend.min.js"></script>
+
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Switched to external script; remove inline JSX to avoid Babel warning -->
+    
+    <!-- Begin: legacy inline script kept minimal only to log root -->
+    <!-- Disabled inline script
+    <script>
+    window.onload = function() {
+        const {
+            createTheme,
+            ThemeProvider,
+            CssBaseline,
+            AppBar,
+            Toolbar,
+            Typography,
+            Box,
+            Container,
+            Tabs,
+            Tab,
+            Card,
+            CardContent,
+            Button,
+            IconButton,
+            TextField,
+            Dialog,
+            DialogTitle,
+            DialogContent,
+            DialogActions,
+            Grid,
+            Paper,
+            Slider,
+            List,
+            ListItem,
+            ListItemText,
+            CircularProgress,
+            Chip,
+            Switch,
+            FormControlLabel,
+            Snackbar,
+            Alert,
+            ListSubheader
+        } = MaterialUI;
+
+        console.log('root');
+
+        // --- AI API HELPER (Grok via x.ai) ---
+        // Persist the provided key for this app so users don't have to paste it each time.
+        // Removed hard-coded API key. Do not store secrets client-side.
+        try { /* no-op */ } catch (e) { /* ignore storage errors */ }
+
+        // Keep the original function name for compatibility with the rest of the code.
+        async function callGeminiAPI(prompt, maxRetries = 3, initialDelay = 1000) {
+            const apiKey = (window.localStorage.getItem('grok_api_key') || '').trim();
+            if (!apiKey) {
+                console.error('Grok API key not set.');
+                return 'Error: Grok API key is not configured.';
+            }
+
+            const url = 'https://api.x.ai/v1/chat/completions';
+            const model = 'grok-4-latest';
+            let delay = initialDelay;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`,
+                        },
+                        body: JSON.stringify({
+                            model,
+                            messages: [
+                                { role: 'system', content: 'You are a helpful tutor inside an interactive study guide. Keep answers concise and under 120 words.' },
+                                { role: 'user', content: prompt },
+                            ],
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const text = data?.choices?.[0]?.message?.content;
+                    return text || 'No response from AI.';
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2; // Exponential backoff
+                    } else {
+                        return `Error communicating with AI after ${maxRetries} attempts.`;
+                    }
+                }
+            }
+        }
+
+
+        // --- CUSTOM HOOKS ---
+        const useLocalStorage = (key, initialValue) => {
+            const [storedValue, setStoredValue] = React.useState(() => {
+                try {
+                    const item = window.localStorage.getItem(key);
+                    return item ? JSON.parse(item) : initialValue;
+                } catch (error) {
+                    console.error(error);
+                    return initialValue;
+                }
+            });
+
+            const setValue = (value) => {
+                try {
+                    const valueToStore = value instanceof Function ? value(storedValue) : value;
+                    setStoredValue(valueToStore);
+                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
+                } catch (error) {
+                    console.error(error);
+                }
+            };
+            return [storedValue, setValue];
+        };
+
+        // --- STYLED COMPONENTS AND CONTENT ---
+        const StyledCard = ({ children, ...props }) => (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <Card elevation={3} {...props}>{children}</Card>
+            </motion.div>
+        );
+
+        const introductionFlashcards = [
+            { id: 1, term: "Infinite Series", definition: "A series of numbers that goes on forever but can still add up to a finite number, like walking halfway to a wall repeatedly." },
+            { id: 2, term: "The Monty Hall Problem", definition: "A probability puzzle where switching your choice after new information is revealed increases your chance of winning from 1/3 to 2/3." },
+            { id: 3, term: "Statistical Intuition", definition: "Understanding the underlying concepts and real-world applications of statistics, not just the technical formulas." },
+            { id: 4, term: "Garbage In, Garbage Out", definition: "The principle that the quality of statistical conclusions depends entirely on the quality of the initial data." }
+        ];
+
+        const chapter1CorrelationItems = [
+            { id: 1, name: 'Smoking and Cancer', type: 'causation' },
+            { id: 2, name: 'Bran Muffins and Lower Cancer Rates', type: 'correlation' },
+            { id: 3, name: 'Education Level and Terrorism', type: 'correlation' }
+        ];
+        
+        // --- UI COMPONENTS ---
+        
+        function ModuleCard({ title, children }) {
+            return (
+                 <StyledCard sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Typography variant="h5" component="h2" gutterBottom>{title}</Typography>
+                        {children}
+                    </CardContent>
+                </StyledCard>
+            );
+        }
+
+        // --- INTRODUCTION MODULES ---
+
+        function InfiniteSeriesSim() {
+            const [position, setPosition] = React.useState(0);
+            const totalDistance = 100;
+            const remainingDistance = totalDistance - position;
+
+            const handleStep = () => {
+                setPosition(prev => prev + remainingDistance / 2);
+            };
+
+            const handleReset = () => setPosition(0);
+
+            return (
+                <Box>
+                    <Typography variant="body1" paragraph>
+                        [cite_start]Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]
+                    </Typography>
+                    <Box sx={{ position: 'relative', height: '50px', border: '1px solid grey', borderRadius: '4px', my: 2 }}>
+                        <motion.div
+                            animate={{ left: `${position}%` }}
+                            transition={{ type: 'spring', stiffness: 100 }}
+                            style={{ position: 'absolute', top: '10px', width: '30px', height: '30px', backgroundColor: 'primary.main', borderRadius: '50%' }}
+                        />
+                        <Box sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '5px', backgroundColor: 'secondary.main' }} />
+                    </Box>
+                     <Typography variant="body2" align="center">
+                        Distance to Wall: <strong>{(totalDistance - position).toFixed(4)}%</strong>
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+                        <Button variant="contained" onClick={handleStep} disabled={remainingDistance < 0.001}>Take a Step</Button>
+                        <Button variant="outlined" onClick={handleReset}>Reset</Button>
+                    </Box>
+                </Box>
+            );
+        }
+
+        function NarrativeNuggets() {
+            return (
+                <Box>
+                    <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+                        <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+                            <Typography variant="h6">The AP Calculus Exam Mix-Up</Typography>
+                            <Typography variant="body2">
+                                [cite_start]The author recounts the joy of his high school calculus teacher accidentally giving the class the *second* semester final exam instead of the first, validating his feeling that he needed to understand the "point" of what he was learning, not just memorize formulas. This experience contrasted with physics, where formulas had clear, cool applications, like calculating the distance of a home run. [cite: 44-71]
+                            </Typography>
+                        </Paper>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+                        <Paper elevation={2} sx={{ p: 2 }}>
+                            <Typography variant="h6">The Monty Hall Problem</Typography>
+                            <Typography variant="body2">
+                                Introduced through the game show "Let's Make a Deal," this classic probability puzzle illustrates how intuition can be misleading. A contestant chooses one of three doors. The host, who knows where the prize is, opens another door to reveal a goat. The contestant is then asked if they want to switch their choice. [cite_start]The counter-intuitive answer is YES—switching doubles your chance of winning from 1/3 to 2/3. [cite: 80-93]
+                            </Typography>
+                        </Paper>
+                    </motion.div>
+                </Box>
+            );
+        }
+        
+        function KeyIdeas() {
+             return (
+                 <List>
+                    <ListItem>
+                        <ListItemText
+                            primary="Statistics is About Intuition"
+                            secondary="The book's core promise is to make statistical concepts intuitive and accessible, arguing that understanding the 'why' makes the technical details easier to grasp. [cite: 99, 132]"
+                        />
+                    </ListItem>
+                    <ListItem>
+                        <ListItemText
+                            primary="Data Quality is Paramount"
+                            secondary="The principle of 'Garbage in, garbage out' is central. [cite_start]Sophisticated statistical techniques are useless if the underlying data is poor, leading to wildly misleading conclusions. [cite: 24, 135]"
+                        />
+                    </ListItem>
+                     <ListItem>
+                        <ListItemText 
+                            primary="The Duality of Statistics" 
+                            secondary="As Andrejs Dunkels noted, 'It's easy to lie with statistics, but it's hard to tell the truth without them.' [cite_start]The book aims to equip readers to spot misuse while appreciating the power of data for good. [cite: 154]"
+                        />
+                    </ListItem>
+                </List>
+             );
+        }
+
+        function Flashcard({ card, isFlipped, onFlip }) {
+            return (
+                <div className="flashcard-container" onClick={onFlip}>
+                    <motion.div className={`flashcard ${isFlipped ? 'flipped' : ''}`}
+                        initial={false}
+                        animate={{ rotateY: isFlipped ? 180 : 0 }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                    >
+                        <Paper className="flashcard-face flashcard-front" elevation={4}>
+                            <Typography variant="h6">{card.term}</Typography>
+                        </Paper>
+                        <Paper className="flashcard-face flashcard-back" elevation={4} sx={{ backgroundColor: 'grey.200' }}>
+                            <Typography variant="body2">{card.definition}</Typography>
+                        </Paper>
+                    </motion.div>
+                </div>
+            );
+        }
+
+        function FlashcardModule({ cards }) {
+            const [flippedCards, setFlippedCards] = React.useState({});
+
+            const handleFlip = (id) => {
+                setFlippedCards(prev => ({ ...prev, [id]: !prev[id] }));
+            };
+
+            return (
+                <Grid container spacing={2}>
+                    {cards.map(card => (
+                        <Grid item xs={12} sm={6} key={card.id}>
+                            <Flashcard
+                                card={card}
+                                isFlipped={!!flippedCards[card.id]}
+                                onFlip={() => handleFlip(card.id)}
+                            />
+                        </Grid>
+                    ))}
+                </Grid>
+            );
+        }
+
+
+        // --- CHAPTER 1 MODULES ---
+        function MeanMedianSim() {
+            const initialData = [35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000, 35000];
+            const [data, setData] = React.useState(initialData);
+            const [outlierAdded, setOutlierAdded] = React.useState(false);
+            const [explanation, setExplanation] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+
+            const calculateMean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+            const calculateMedian = (arr) => {
+                const sorted = [...arr].sort((a, b) => a - b);
+                const mid = Math.floor(sorted.length / 2);
+                return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+            };
+            
+            const handleToggleOutlier = () => {
+                if (outlierAdded) {
+                    setData(initialData);
+                } else {
+                    setData([...initialData, 1000000000]); // Bill Gates' $1B income
+                }
+                setOutlierAdded(!outlierAdded);
+            };
+
+            const fetchExplanation = async () => {
+                setLoading(true);
+                setExplanation('');
+                const prompt = `Explain the difference between mean and median like I'm 5, using a simple analogy. Refer to the idea of an 'outlier' or an extreme value. Keep it under 100 words.`;
+                const result = await callGeminiAPI(prompt);
+                setExplanation(result);
+                setLoading(false);
+            };
+            
+            const mean = calculateMean(data);
+            const median = calculateMedian(data);
+
+            return (
+                <Box>
+                     <Typography variant="body1" paragraph>
+                        [cite_start]The book uses a great analogy: Ten people are in a bar, each earning $35,000 a year. Their mean (average) and median (middle) income is $35,000. When Bill Gates (income ~$1B) walks in, the mean income skyrockets to over $90 million, but the median income stays at $35,000. The median is a better description of the 'typical' person in the bar. [cite: 447-461]
+                    </Typography>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={6}>
+                            <Typography>Mean (Average): <strong>${mean.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong></Typography>
+                            <Typography>Median (Middle Value): <strong>${median.toLocaleString()}</strong></Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Button variant="contained" onClick={handleToggleOutlier}>
+                                {outlierAdded ? 'Remove Bill Gates' : 'Add Bill Gates'}
+                            </Button>
+                        </Grid>
+                    </Grid>
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                        <Button variant="outlined" size="small" onClick={fetchExplanation} disabled={loading}>Explain Like I'm 5</Button>
+                    </Box>
+                    {loading && <CircularProgress size={24} sx={{mt: 2}} />}
+                    {explanation && <Paper elevation={1} sx={{ p: 2, mt: 2, backgroundColor: 'grey.100' }}>
+                        <Typography variant="body2">{explanation}</Typography>
+                    </Paper>}
+                </Box>
+            );
+        }
+
+        function GiniIndexExplorer() {
+            const countries = [
+                { name: 'Sweden', gini: 0.23 },
+                { name: 'Canada', gini: 0.32 },
+                { name: 'China', gini: 0.42 },
+                { name: 'United States', gini: 0.45 },
+                { name: 'Brazil', gini: 0.54 },
+                { name: 'South Africa', gini: 0.65 }
+            ];
+            const [selectedGini, setSelectedGini] = React.useState(0.45);
+            const [explanation, setExplanation] = React.useState('');
+            const [problem, setProblem] = React.useState('');
+            const [loading, setLoading] = React.useState({eli5: false, problem: false});
+
+            const handleSliderChange = (event, newValue) => {
+                setSelectedGini(newValue);
+            };
+
+            const fetchExplanation = async () => {
+                setLoading(prev => ({...prev, eli5: true}));
+                setExplanation('');
+                const prompt = `Explain the Gini Index like I'm 5. Use an analogy like sharing cookies or pizza slices. A Gini of 0 is perfect sharing, and a Gini of 1 is one person getting all the cookies. Keep it under 100 words.`;
+                const result = await callGeminiAPI(prompt);
+                setExplanation(result);
+                setLoading(prev => ({...prev, eli5: false}));
+            };
+
+            const fetchProblem = async () => {
+                setLoading(prev => ({...prev, problem: true}));
+                setProblem('');
+                const prompt = `Create a simple practice problem about the Gini Index. For example: "Country A has a Gini index of 0.25 and Country B has a Gini index of 0.50. Which country has a more unequal distribution of wealth and why?" Provide the answer in a separate paragraph starting with 'Answer:'.`;
+                const result = await callGeminiAPI(prompt);
+                setProblem(result);
+                setLoading(prev => ({...prev, problem: false}));
+            };
+
+            return (
+                <Box>
+                    <Typography variant="body1" paragraph>
+                        [cite_start]The Gini index is a descriptive statistic that collapses complex information about a country's income distribution into a single number from 0 (perfect equality) to 1 (one person has all the wealth). It's a tool for comparison. [cite: 179-183]
+                    </Typography>
+                    <Typography gutterBottom>Inequality Scale (0 = Equal, 1 = Unequal)</Typography>
+                    <Slider
+                        value={selectedGini}
+                        onChange={handleSliderChange}
+                        aria-labelledby="gini-slider"
+                        step={0.01}
+                        min={0}
+                        max={1}
+                        valueLabelDisplay="auto"
+                    />
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, my: 2 }}>
+                        {countries.map(c => (
+                            <Chip
+                                key={c.name}
+                                label={`${c.name} (${c.gini})`}
+                                onClick={() => setSelectedGini(c.gini)}
+                                variant={selectedGini === c.gini ? 'filled' : 'outlined'}
+                                color="primary"
+                            />
+                        ))}
+                    </Box>
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                        <Button variant="outlined" size="small" onClick={fetchExplanation} disabled={loading.eli5}>Explain Like I'm 5</Button>
+                        <Button variant="outlined" size="small" onClick={fetchProblem} disabled={loading.problem}>Generate Practice Problem</Button>
+                    </Box>
+                    {loading.eli5 && <CircularProgress size={24} sx={{mt: 2}} />}
+                    {explanation && <Paper elevation={1} sx={{ p: 2, mt: 2, backgroundColor: 'grey.100' }}>
+                        <Typography variant="body2">{explanation}</Typography>
+                    </Paper>}
+                    {loading.problem && <CircularProgress size={24} sx={{mt: 2}} />}
+                    {problem && <Paper elevation={1} sx={{ p: 2, mt: 2, backgroundColor: 'grey.100' }}>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{problem}</Typography>
+                    </Paper>}
+                </Box>
+            );
+        }
+
+        function SpotTheStatistic() {
+            const stats = [
+                { id: 1, statement: "Jay Cutler had a passer rating of 31.8 in the 2011 playoffs. [cite: 170]", type: "Index" },
+                { id: 2, statement: "The United States has a Gini index of .45, measuring income inequality. [cite: 189]", type: "Index" },
+                { id: 3, statement: "Mickey Mantle was a career .298 hitter. [cite: 222]", type: "Descriptive Statistic" }
+            ];
+            const [currentStatIndex, setCurrentStatIndex] = React.useState(0);
+            const [feedback, setFeedback] = React.useState('');
+
+            const handleAnswer = (answer) => {
+                if (answer === stats[currentStatIndex].type) {
+                    setFeedback('Correct!');
+                } else {
+                    setFeedback(`Not quite! That's an example of a(n) ${stats[currentStatIndex].type}.`);
+                }
+                setTimeout(() => {
+                    setFeedback('');
+                    setCurrentStatIndex((prev) => (prev + 1) % stats.length);
+                }, 2000);
+            };
+
+            return (
+                <Box>
+                    <Typography variant="body1" paragraph>
+                        Statistics are used to summarize complex information. Can you identify the type of statistic being used in these examples from the book?
+                    </Typography>
+                    <Paper elevation={2} sx={{ p: 2, my: 2, minHeight: '80px' }}>
+                        <Typography variant="h6">"{stats[currentStatIndex].statement}"</Typography>
+                    </Paper>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                        <Button variant="contained" onClick={() => handleAnswer('Index')}>Index</Button>
+                        <Button variant="contained" onClick={() => handleAnswer('Descriptive Statistic')}>Descriptive Statistic</Button>
+                    </Box>
+                    {feedback && <Typography align="center" sx={{ mt: 2, color: feedback === 'Correct!' ? 'green' : 'red' }}>{feedback}</Typography>}
+                </Box>
+            );
+        }
+
+        const ItemTypes = { CARD: 'card' };
+
+        function DraggableItem({ item }) {
+            const [{ isDragging }, drag] = useDrag(() => ({
+                type: ItemTypes.CARD,
+                item: { id: item.id, type: item.type },
+                collect: (monitor) => ({
+                    isDragging: !!monitor.isDragging(),
+                }),
+            }));
+
+            return (
+                <motion.div
+                    ref={drag}
+                    initial={{ opacity: 1, scale: 1 }}
+                    animate={{ opacity: isDragging ? 0.5 : 1, scale: isDragging ? 0.95 : 1 }}
+                    whileHover={{ scale: 1.05 }}
+                    className="draggable-item"
+                >
+                    <Chip label={item.name} color="secondary" sx={{ m: 0.5 }} />
+                </motion.div>
+            );
+        }
+
+        function DropTarget({ type, onDrop, children, title }) {
+            const [{ isOver }, drop] = useDrop(() => ({
+                accept: ItemTypes.CARD,
+                drop: (item) => onDrop(item, type),
+                collect: (monitor) => ({
+                    isOver: !!monitor.isOver(),
+                }),
+            }));
+
+            return (
+                <Paper
+                    ref={drop}
+                    elevation={2}
+                    className={`drop-target ${isOver ? 'drop-target-hover' : ''}`}
+                    sx={{ p: 2, flex: 1 }}
+                >
+                    <Typography variant="h6" align="center" gutterBottom>{title}</Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {children}
+                    </Box>
+                </Paper>
+            );
+        }
+
+        function CorrelationCausationMatcher() {
+            const [unplacedItems, setUnplacedItems] = React.useState(chapter1CorrelationItems);
+            const [causationItems, setCausationItems] = React.useState([]);
+            const [correlationItems, setCorrelationItems] = React.useState([]);
+            const [feedback, setFeedback] = React.useState('');
+            const [problem, setProblem] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+
+            const handleDrop = (item, targetType) => {
+                const droppedItem = unplacedItems.find(i => i.id === item.id);
+                if (!droppedItem) return;
+
+                if (droppedItem.type === targetType) {
+                    setFeedback({ status: 'success', text: 'Correct!' });
+                    if (targetType === 'causation') {
+                        setCausationItems(prev => [...prev, droppedItem]);
+                    } else {
+                        setCorrelationItems(prev => [...prev, droppedItem]);
+                    }
+                    setUnplacedItems(prev => prev.filter(i => i.id !== item.id));
+                } else {
+                    setFeedback({ status: 'error', text: 'Try again!' });
+                }
+                setTimeout(() => setFeedback(''), 1500);
+            };
+            
+            const handleReset = () => {
+                setUnplacedItems(chapter1CorrelationItems);
+                setCausationItems([]);
+                setCorrelationItems([]);
+            };
+            
+            const fetchProblem = async () => {
+                setLoading(true);
+                setProblem('');
+                const prompt = `Create a short, real-world practice problem about correlation vs. causation. For example: "A study finds that cities with more libraries have higher crime rates. Does this mean libraries cause crime, or is there another explanation?" Provide a brief explanation of the likely answer, mentioning confounding variables.`;
+                const result = await callGeminiAPI(prompt);
+                setProblem(result);
+                setLoading(false);
+            };
+
+            return (
+                <Box>
+                    <Typography variant="body1" paragraph>
+                        [cite_start]A core theme in statistics is that correlation does not imply causation. Just because two things are associated doesn't mean one causes the other. Drag the scenarios from the book into the correct category. [cite: 338-339]
+                    </Typography>
+                    <Box sx={{ minHeight: '60px', mb: 2 }}>
+                        {unplacedItems.map(item => <DraggableItem key={item.id} item={item} />)}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                        <DropTarget type="causation" onDrop={handleDrop} title="Causation Likely">
+                            {causationItems.map(item => <Chip key={item.id} label={item.name} color="success" sx={{ m: 0.5 }} />)}
+                        </DropTarget>
+                        <DropTarget type="correlation" onDrop={handleDrop} title="Correlation Only">
+                            {correlationItems.map(item => <Chip key={item.id} label={item.name} color="warning" sx={{ m: 0.5 }} />)}
+                        </DropTarget>
+                    </Box>
+                    <AnimatePresence>
+                        {feedback && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                <Alert severity={feedback.status} sx={{ mt: 2 }}>{feedback.text}</Alert>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                        <Button onClick={handleReset} variant="outlined">Reset</Button>
+                        <Button onClick={fetchProblem} variant="outlined" disabled={loading}>Generate Practice Problem</Button>
+                    </Box>
+                    {loading && <CircularProgress size={24} sx={{mt: 2}} />}
+                    {problem && <Paper elevation={1} sx={{ p: 2, mt: 2, backgroundColor: 'grey.100' }}>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{problem}</Typography>
+                    </Paper>}
+                </Box>
+            );
+        }
+
+        // --- DIALOGS AND TABS ---
+
+        function NotesDialog({ open, onClose, notes, setNotes }) {
+            const [newNote, setNewNote] = React.useState('');
+            const [selectedNote, setSelectedNote] = React.useState(null);
+            const [elaboration, setElaboration] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+
+            const handleAddNote = () => {
+                if (newNote.trim()) {
+                    setNotes(prev => [...prev, {id: Date.now(), text: newNote}]);
+                    setNewNote('');
+                }
+            };
+            
+            const handleElaborate = async () => {
+                if (!selectedNote) return;
+                setLoading(true);
+                setElaboration('');
+                const prompt = `A student is studying Charles Wheelan's "Naked Statistics" and wrote this note: "${selectedNote.text}". Please elaborate on this note with more context or examples from the book or general statistics. Keep it concise.`;
+                const result = await callGeminiAPI(prompt);
+                setElaboration(result);
+                setLoading(false);
+            };
+            
+            const handleSelectNote = (note) => {
+                setSelectedNote(note);
+                setElaboration('');
+            }
+            
+            const handleDeleteNote = (id) => {
+                setNotes(prev => prev.filter(note => note.id !== id));
+                if (selectedNote && selectedNote.id === id) {
+                    setSelectedNote(null);
+                    setElaboration('');
+                }
+            }
+            
+            return (
+                 <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+                    <DialogTitle>My Study Notes</DialogTitle>
+                    <DialogContent>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={5}>
+                                 <TextField
+                                    label="New Note"
+                                    multiline
+                                    rows={3}
+                                    fullWidth
+                                    value={newNote}
+                                    onChange={(e) => setNewNote(e.target.value)}
+                                    variant="outlined"
+                                    margin="normal"
+                                />
+                                <Button onClick={handleAddNote} variant="contained">Add Note</Button>
+                                <List sx={{ mt: 2 }}>
+                                    <ListSubheader>Saved Notes</ListSubheader>
+                                     {notes.map(note => (
+                                        <ListItem
+                                            key={note.id}
+                                            button
+                                            selected={selectedNote && selectedNote.id === note.id}
+                                            onClick={() => handleSelectNote(note)}
+                                            secondaryAction={
+                                                <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteNote(note.id)}>
+                                                    <i className="material-icons">delete</i>
+                                                </IconButton>
+                                            }
+                                        >
+                                            <ListItemText primary={note.text} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </Grid>
+                            <Grid item xs={12} md={7}>
+                                {selectedNote && (
+                                    <Box>
+                                        <Typography variant="h6">Elaboration</Typography>
+                                        <Button onClick={handleElaborate} disabled={loading} sx={{ my: 1 }}>
+                                            {loading ? <CircularProgress size={24} /> : "Elaborate with AI"}
+                                        </Button>
+                                        {elaboration && (
+                                            <Paper elevation={1} sx={{ p: 2, backgroundColor: 'grey.100' }}>
+                                                <Typography variant="body2">{elaboration}</Typography>
+                                            </Paper>
+                                        )}
+                                    </Box>
+                                )}
+                            </Grid>
+                        </Grid>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={onClose}>Close</Button>
+                    </DialogActions>
+                </Dialog>
+            );
+        }
+        
+        const quizQuestions = [
+            // Intro
+            { question: "In the Monty Hall problem, what are your chances of winning if you switch doors?", options: ["1/3", "1/2", "2/3", "1/4"], answer: "2/3" },
+            { question: "What is the key principle behind 'Garbage in, garbage out'?", options: ["Data analysis is always messy", "The quality of your conclusions depends on the quality of your data", "More data is always better", "Statistics can prove anything"], answer: "The quality of your conclusions depends on the quality of your data" },
+            // Chapter 1
+            { question: "Which measure of 'central tendency' is heavily affected by outliers like a billionaire's income?", options: ["Median", "Mode", "Mean", "Range"], answer: "Mean" },
+            { question: "A Gini index of 0 represents...", options: ["Perfect inequality", "Perfect equality", "Moderate inequality", "High economic growth"], answer: "Perfect equality" },
+            { question: "What is a major limitation of descriptive statistics like a batting average?", options: ["They are always inaccurate", "They are too complex", "They simplify information, losing nuance and detail", "They are only useful in sports"], answer: "They simplify information, losing nuance and detail" },
+        ];
+
+
+        function QuizDialog({ open, onClose, setQuizScores }) {
+            const [currentQuestion, setCurrentQuestion] = React.useState(0);
+            const [selectedAnswer, setSelectedAnswer] = React.useState(null);
+            const [score, setScore] = React.useState(0);
+            const [showResult, setShowResult] = React.useState(false);
+
+            const handleNext = () => {
+                if (selectedAnswer === quizQuestions[currentQuestion].answer) {
+                    setScore(prev => prev + 1);
+                }
+                setSelectedAnswer(null);
+                if (currentQuestion < quizQuestions.length - 1) {
+                    setCurrentQuestion(prev => prev + 1);
+                } else {
+                    setShowResult(true);
+                }
+            };
+            
+            React.useEffect(() => {
+                if(showResult){
+                    setQuizScores(prev => [...prev, { score: score, total: quizQuestions.length, date: new Date().toISOString() }]);
+                }
+            }, [showResult]);
+
+
+            const handleClose = () => {
+                setCurrentQuestion(0);
+                setSelectedAnswer(null);
+                setScore(0);
+                setShowResult(false);
+                onClose();
+            };
+
+            return (
+                <Dialog open={open} onClose={handleClose} fullWidth>
+                    <DialogTitle>Quick Quiz</DialogTitle>
+                    <DialogContent>
+                        {showResult ? (
+                            <Box>
+                                <Typography variant="h5">Quiz Complete!</Typography>
+                                <Typography variant="h6">Your Score: {score} / {quizQuestions.length}</Typography>
+                            </Box>
+                        ) : (
+                            <Box>
+                                <Typography variant="h6">{currentQuestion + 1}. {quizQuestions[currentQuestion].question}</Typography>
+                                <List>
+                                    {quizQuestions[currentQuestion].options.map(option => (
+                                        <ListItem
+                                            key={option}
+                                            button
+                                            selected={selectedAnswer === option}
+                                            onClick={() => setSelectedAnswer(option)}
+                                        >
+                                            <ListItemText primary={option} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        {!showResult && <Button onClick={handleNext} disabled={!selectedAnswer}>Next</Button>}
+                        <Button onClick={handleClose}>Close</Button>
+                    </DialogActions>
+                </Dialog>
+            );
+        }
+
+
+        function App() {
+            const [tab, setTab] = React.useState(0);
+            const [darkMode, setDarkMode] = useLocalStorage('stats-app-dark-mode', false);
+            const [notesOpen, setNotesOpen] = React.useState(false);
+            const [quizOpen, setQuizOpen] = React.useState(false);
+            const [notes, setNotes] = useLocalStorage('stats-app-notes', []);
+            const [quizScores, setQuizScores] = useLocalStorage('stats-app-scores', []);
+
+            const theme = React.useMemo(() => createTheme({
+                palette: {
+                    mode: darkMode ? 'dark' : 'light',
+                },
+            }), [darkMode]);
+
+            const handleTabChange = (event, newValue) => {
+                setTab(newValue);
+            };
+
+            return (
+                <ThemeProvider theme={theme}>
+                    <DndProvider backend={HTML5Backend}>
+                        <CssBaseline />
+                        <AppBar position="static">
+                            <Toolbar>
+                                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                                    Naked Statistics: An Interactive Guide
+                                </Typography>
+                                 <FormControlLabel
+                                    control={<Switch checked={darkMode} onChange={() => setDarkMode(!darkMode)} />}
+                                    label={darkMode ? 'Dark Mode' : 'Light Mode'}
+                                />
+                                <Button color="inherit" onClick={() => setNotesOpen(true)}>Notes</Button>
+                                <Button color="inherit" onClick={() => setQuizOpen(true)}>Start Quiz</Button>
+                            </Toolbar>
+                        </AppBar>
+
+                        <Container maxWidth="md" sx={{ mt: 4 }}>
+                            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                <Tabs value={tab} onChange={handleTabChange} aria-label="content tabs">
+                                    <Tab label="Introduction" />
+                                    <Tab label="Chapter 1: What's the Point?" />
+                                </Tabs>
+                            </Box>
+
+                            <Box sx={{ pt: 3 }}>
+                                {tab === 0 && (
+                                    <Box>
+                                        <ModuleCard title="Infinite Series Simulation">
+                                            <InfiniteSeriesSim />
+                                        </ModuleCard>
+                                        <ModuleCard title="Narrative Nuggets">
+                                            <NarrativeNuggets />
+                                        </ModuleCard>
+                                        <ModuleCard title="Key Ideas">
+                                            <KeyIdeas />
+                                        </ModuleCard>
+                                        <ModuleCard title="Flashcards">
+                                            <FlashcardModule cards={introductionFlashcards} />
+                                        </ModuleCard>
+                                    </Box>
+                                )}
+                                {tab === 1 && (
+                                    <Box>
+                                        <ModuleCard title="Mean vs. Median Simulation">
+                                            <MeanMedianSim />
+                                        </ModuleCard>
+                                        <ModuleCard title="Gini Index Explorer">
+                                            <GiniIndexExplorer />
+                                        </ModuleCard>
+                                        <ModuleCard title="Spot the Statistic Game">
+                                            <SpotTheStatistic />
+                                        </ModuleCard>
+                                        <ModuleCard title="Correlation vs. Causation Matcher">
+                                            <CorrelationCausationMatcher />
+                                        </ModuleCard>
+                                    </Box>
+                                )}
+                            </Box>
+                        </Container>
+                        
+                        <NotesDialog open={notesOpen} onClose={() => setNotesOpen(false)} notes={notes} setNotes={setNotes}/>
+                        <QuizDialog open={quizOpen} onClose={() => setQuizOpen(false)} setQuizScores={setQuizScores} />
+                    </DndProvider>
+                </ThemeProvider>
+            );
+        }
+
+        // The actual app is now loaded from app.js
+    };
+    </script> -->
+    <script src="./app.js"></script>
+</body>
+</html>

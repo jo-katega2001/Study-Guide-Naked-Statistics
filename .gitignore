@@ -1,0 +1,11 @@
+# Local Netlify folder
+.netlify
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# OS / editor noise
+.DS_Store
+*.log
