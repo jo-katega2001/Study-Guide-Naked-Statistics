@@ -208,10 +208,10 @@ window.onload = function () {
                     // We animate the 'x' property (translateX) which is often more performant for movement.
                     // The position is a percentage of the container's width.
                     React.createElement(motion.div, { 
-                        initial: { x: "0%" }, // Start at the beginning
-                        animate: { x: `${position}%` }, // Animate to the new position state
+                        initial: { left: "0%" },
+                        animate: { left: `${position}%` },
                         transition: { type: "spring", stiffness: 100, damping: 15 }, 
-                        style: { position: "absolute", bottom: "10px", width: "5%", display: 'flex', justifyContent: 'center' } 
+                        style: { position: "absolute", bottom: "10px", left: 0, width: "5%", display: 'flex', justifyContent: 'center' } 
                     }, React.createElement("i", { className: "material-icons", style: { fontSize: '40px' } }, "directions_walk")),
                     
                     // --- The "Wall" ---
