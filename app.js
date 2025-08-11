@@ -139,75 +139,67 @@ window.onload = function () {
     }
 
     function InfiniteSeriesSim() {
-        // Position as a percent toward the wall (0..100)
+        // State for the person's position (0 = start, 100 = at the wall)
         const [position, setPosition] = React.useState(0);
         const [steps, setSteps] = React.useState(0);
         const totalDistance = 100;
-
-        // Measure container to animate in pixels reliably
-        const containerRef = React.useRef(null);
-        const [containerWidth, setContainerWidth] = React.useState(0);
-        React.useEffect(() => {
-            const measure = () => setContainerWidth(containerRef.current?.clientWidth || 0);
-            measure();
-            window.addEventListener('resize', measure);
-            return () => window.removeEventListener('resize', measure);
-        }, []);
-
-        // core logic: step halfway based on previous position
+        
+        // This is the core logic: it calculates the next step based on the *previous* position.
+        // This is a safer way to update state in React and avoids potential bugs.
         const handleStep = () => {
-            setPosition(prev => {
-                const remaining = totalDistance - prev;
-                return prev + remaining / 2;
+            setPosition(prevPosition => {
+                const remaining = totalDistance - prevPosition;
+                return prevPosition + remaining / 2;
             });
-            setSteps(s => s + 1);
+            setSteps(prevSteps => prevSteps + 1);
         };
 
-        const handleReset = () => { setPosition(0); setSteps(0); };
+        const handleReset = () => {
+            setPosition(0);
+            setSteps(0);
+        };
 
         const remainingDistance = totalDistance - position;
-
-        // Convert percentage to pixels, accounting for icon and wall widths (each ~5%)
-        const wallPx = containerWidth * 0.05;
-        const iconPx = containerWidth * 0.05;
-        const maxX = Math.max(0, containerWidth - wallPx - iconPx);
-        const xPx = (position / 100) * maxX;
 
         return (
             React.createElement(Box, null,
                 React.createElement(Typography, { variant: "body1", paragraph: true },
-                    "[cite_start]Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]"
+                    "[cite_start]\"Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]\""
                 ),
-
+                
                 // --- VISUAL SIMULATION AREA ---
-                React.createElement(Box, { ref: containerRef, sx: { position: "relative", height: "80px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden" } },
-                    // Person icon animated in pixels
-                    React.createElement(motion.div, {
-                        initial: { x: 0 },
-                        animate: { x: xPx },
-                        transition: { type: 'spring', stiffness: 100, damping: 15 },
-                        style: { position: 'absolute', bottom: '10px', width: '5%', display: 'flex', justifyContent: 'center', left: 0 }
+                React.createElement(Box, { sx: { position: "relative", height: "80px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden" } },
+                    
+                    // --- The "Person" Icon ---
+                    // We animate the 'x' property (translateX) which is often more performant for movement.
+                    // The position is a percentage of the container's width.
+                    React.createElement(motion.div, { 
+                        initial: { x: "0%" }, // Start at the beginning
+                        animate: { x: `${position}%` }, // Animate to the new position state
+                        transition: { type: "spring", stiffness: 100, damping: 15 }, 
+                        style: { position: "absolute", bottom: "10px", width: "5%", display: 'flex', justifyContent: 'center' } 
                     }, React.createElement("i", { className: "material-icons", style: { fontSize: '40px' } }, "directions_walk")),
-                    // Wall
-                    React.createElement(Box, { sx: { position: 'absolute', right: 0, top: 0, height: '100%', width: '5%', backgroundColor: 'grey.400', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                        React.createElement(Typography, { variant: 'caption', sx: { writingMode: 'vertical-rl', textOrientation: 'mixed', color: 'black' } }, 'WALL')
+                    
+                    // --- The "Wall" ---
+                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "5%", backgroundColor: "grey.400", display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        React.createElement(Typography, { variant: "caption", sx: { writingMode: 'vertical-rl', textOrientation: 'mixed', color: 'black' } }, "WALL")
                     )
                 ),
 
                 // --- STATS DISPLAY ---
-                React.createElement(Grid, { container: true, spacing: 2, textAlign: 'center' },
+                React.createElement(Grid, { container: true, spacing: 2, textAlign: "center" },
                     React.createElement(Grid, { item: true, xs: 6 },
-                        React.createElement(Typography, { variant: 'body2' }, 'Steps Taken: ', React.createElement('strong', null, steps))
+                        React.createElement(Typography, { variant: "body2" }, "Steps Taken: ", React.createElement("strong", null, steps))
                     ),
                     React.createElement(Grid, { item: true, xs: 6 },
-                        React.createElement(Typography, { variant: 'body2' }, 'Remaining Distance: ', React.createElement('strong', null, remainingDistance.toFixed(4)), '%')
+                        React.createElement(Typography, { variant: "body2" }, "Remaining Distance: ", React.createElement("strong", null, remainingDistance.toFixed(4)), "%")
                     )
                 ),
-
+                
                 // --- CONTROLS ---
-                React.createElement(Box, { sx: { display: 'flex', justifyContent: 'center', gap: 2, mt: 3 } },
-                    React.createElement(Button, { variant: 'contained', onClick: handleStep, disabled: remainingDistance < 0.001 }, 'Move Halfway'),
-                    React.createElement(Button, { variant: 'outlined', onClick: handleReset }, 'Reset')
+                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 3 } },
+                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Move Halfway"),
+                    React.createElement(Button, { variant: "outlined", onClick: handleReset }, "Reset")
                 )
             )
         );

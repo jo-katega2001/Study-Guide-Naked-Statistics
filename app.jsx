@@ -173,60 +173,66 @@ window.onload = function () {
 
     // --- INTRODUCTION MODULES ---
     function InfiniteSeriesSim() {
-        // Enhanced visualization: track steps, last step size, and show convergence message
-        const [position, setPosition] = React.useState(0); // 0-100 (% of track)
+        // State for the person's position (0 = start, 100 = at the wall)
+        const [position, setPosition] = React.useState(0);
         const [steps, setSteps] = React.useState(0);
-        const [lastStep, setLastStep] = React.useState(0);
-        const [complete, setComplete] = React.useState(false);
         const totalDistance = 100;
-        const remainingDistance = totalDistance - position;
-
+        
+        // This is the core logic: it calculates the next step based on the *previous* position.
+        // This is a safer way to update state in React and avoids potential bugs.
         const handleStep = () => {
-            if (remainingDistance < 0.001) { setComplete(true); return; }
-            setPosition((prev) => {
-                const delta = (100 - prev) / 2;
-                setLastStep(delta);
-                setSteps((s) => s + 1);
-                const next = prev + delta;
-                if (100 - next < 0.001) setComplete(true);
-                return next;
+            setPosition(prevPosition => {
+                const remaining = totalDistance - prevPosition;
+                return prevPosition + remaining / 2;
             });
+            setSteps(prevSteps => prevSteps + 1);
         };
 
         const handleReset = () => {
             setPosition(0);
             setSteps(0);
-            setLastStep(0);
-            setComplete(false);
         };
+
+        const remainingDistance = totalDistance - position;
 
         return (
             React.createElement(Box, null,
                 React.createElement(Typography, { variant: "body1", paragraph: true },
-                    "[cite_start]Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]"
+                    "[cite_start]\"Charles Wheelan explains the concept of a converging infinite series with an analogy: imagine you are 2 feet from a wall. You move half the distance (1 foot), then half the remaining distance (6 inches), and so on. You will get infinitely close, but never hit it. The total distance you travel will never be more than 2 feet. [cite: 117-126]\""
                 ),
-                React.createElement(Box, { sx: { position: "relative", height: "60px", border: "1px solid", borderColor: "divider", borderRadius: 1, my: 2 } },
-                    React.createElement(motion.div, { animate: { left: `${position}%` }, transition: { type: "spring", stiffness: 120, damping: 18 }, style: { position: "absolute", top: "12px", width: "32px", height: "32px", backgroundColor: "#1976d2", borderRadius: "50%", boxShadow: "0 2px 6px rgba(0,0,0,0.2)" } }),
-                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "6px", bgcolor: "secondary.main" } })
-                ),
-                React.createElement(Grid, { container: true, spacing: 2, justifyContent: "center" },
-                    React.createElement(Grid, { item: true, xs: 12, sm: 4 },
-                        React.createElement(Typography, { align: "center" }, "Steps: ", React.createElement("strong", null, steps))
-                    ),
-                    React.createElement(Grid, { item: true, xs: 12, sm: 4 },
-                        React.createElement(Typography, { align: "center" }, "Last Step: ", React.createElement("strong", null, lastStep.toFixed(4)), "%")
-                    ),
-                    React.createElement(Grid, { item: true, xs: 12, sm: 4 },
-                        React.createElement(Typography, { align: "center" }, "Distance to Wall: ", React.createElement("strong", null, (totalDistance - position).toFixed(4)), "%")
+                
+                // --- VISUAL SIMULATION AREA ---
+                React.createElement(Box, { sx: { position: "relative", height: "80px", border: "1px solid", borderColor: "divider", borderRadius: "4px", my: 2, p: 1, overflow: "hidden" } },
+                    
+                    // --- The "Person" Icon ---
+                    // We animate the 'x' property (translateX) which is often more performant for movement.
+                    // The position is a percentage of the container's width.
+                    React.createElement(motion.div, { 
+                        initial: { x: "0%" }, // Start at the beginning
+                        animate: { x: `${position}%` }, // Animate to the new position state
+                        transition: { type: "spring", stiffness: 100, damping: 15 }, 
+                        style: { position: "absolute", bottom: "10px", width: "5%", display: 'flex', justifyContent: 'center' } 
+                    }, React.createElement("i", { className: "material-icons", style: { fontSize: '40px' } }, "directions_walk")),
+                    
+                    // --- The "Wall" ---
+                    React.createElement(Box, { sx: { position: "absolute", right: 0, top: 0, height: "100%", width: "5%", backgroundColor: "grey.400", display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        React.createElement(Typography, { variant: "caption", sx: { writingMode: 'vertical-rl', textOrientation: 'mixed', color: 'black' } }, "WALL")
                     )
                 ),
-                complete && React.createElement(AnimatePresence, null,
-                    React.createElement(motion.div, { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } },
-                        React.createElement(Alert, { severity: "success", sx: { mt: 2 } }, "This is convergence: steps get smaller and you approach the wall without exceeding it.")
+
+                // --- STATS DISPLAY ---
+                React.createElement(Grid, { container: true, spacing: 2, textAlign: "center" },
+                    React.createElement(Grid, { item: true, xs: 6 },
+                        React.createElement(Typography, { variant: "body2" }, "Steps Taken: ", React.createElement("strong", null, steps))
+                    ),
+                    React.createElement(Grid, { item: true, xs: 6 },
+                        React.createElement(Typography, { variant: "body2" }, "Remaining Distance: ", React.createElement("strong", null, remainingDistance.toFixed(4)), "%")
                     )
                 ),
-                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 2 } },
-                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Take a Step"),
+                
+                // --- CONTROLS ---
+                React.createElement(Box, { sx: { display: "flex", justifyContent: "center", gap: 2, mt: 3 } },
+                    React.createElement(Button, { variant: "contained", onClick: handleStep, disabled: remainingDistance < 0.001 }, "Move Halfway"),
                     React.createElement(Button, { variant: "outlined", onClick: handleReset }, "Reset")
                 )
             )
